@@ -44,12 +44,12 @@ object ConfigUtil {
         } else {
           logger.warn(s"Local config file under ${path.get} not found.")
           ConfigFactory.defaultOverrides()
-            .withFallback(ConfigFactory.load("application"))
+            .withFallback(ConfigFactory.load(appName))
         }
       } else {
         logger.info("Using only default config file.")
         ConfigFactory.defaultOverrides()
-          .withFallback(ConfigFactory.load("application"))
+          .withFallback(ConfigFactory.load(appName))
       }
     })
   }
