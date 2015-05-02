@@ -1,6 +1,7 @@
 package pl.zaw.core.config
 
 import java.io.File
+import java.util
 
 import com.typesafe.config._
 import com.typesafe.scalalogging.Logger
@@ -21,7 +22,7 @@ object ConfigUtil {
 
   //TODO add at the first place, file loaded from the same directory as application
   /**
-   * Inits config for application. Should be called once at the beginning.
+   * Initializes config for application. Should be called once at the beginning.
    *
    * Loads default config from classpath resources and local config from path set in system environments.
    * Default config file should be named [[appName]].conf, [[appName]].json or [[appName]].properties.
@@ -55,18 +56,66 @@ object ConfigUtil {
   }
 
   /**
-   * Returns property's value as [[String]]
+   * Returns property's value as [[Option[String] ]]
    * @param property property's name
    */
   @throws[MissingInit]("if the init wasn't called first")
-  def getProperty(property: String, default: String = ""): String = {
+  def getProperty(property: String): Option[String] = {
     if (!config.isDefined) {
       throw new MissingInit("Init properties first.")
     }
     try {
-      config.get.getString(property)
+      Some(config.get.getString(property))
     } catch {
-      case _:ConfigException => default
+      case _:ConfigException => None
+    }
+  }
+
+  /**
+   * Returns property's value as [[Option[Boolean] ]]
+   * @param property property's name
+   */
+  @throws[MissingInit]("if the init wasn't called first")
+  def getPropertyAsBoolean(property: String): Option[Boolean] = {
+    if (!config.isDefined) {
+      throw new MissingInit("Init properties first.")
+    }
+    try {
+      Some(config.get.getBoolean(property))
+    } catch {
+      case _:ConfigException => None
+    }
+  }
+
+  /**
+   * Returns property's value as [[Option[Int] ]]
+   * @param property property's name
+   */
+  @throws[MissingInit]("if the init wasn't called first")
+  def getPropertyAsInt(property: String): Option[Int] = {
+    if (!config.isDefined) {
+      throw new MissingInit("Init properties first.")
+    }
+    try {
+      Some(config.get.getInt(property))
+    } catch {
+      case _:ConfigException => None
+    }
+  }
+
+  /**
+   * Returns property's value as [[Option[util.List[String]] ]]
+   * @param property property's name
+   */
+  @throws[MissingInit]("if the init wasn't called first")
+  def getPropertyAsStringList(property: String): Option[util.List[String]] = {
+    if (!config.isDefined) {
+      throw new MissingInit("Init properties first.")
+    }
+    try {
+      Some(config.get.getStringList(property))
+    } catch {
+      case _:ConfigException => None
     }
   }
 }
