@@ -20,7 +20,6 @@ object ConfigUtil {
   var appName = None: Option[String]
   var config = None: Option[Config]
 
-  //TODO add at the first place, file loaded from the same directory as application
   /**
    * Initializes config for application. Should be called once at the beginning.
    *
@@ -33,26 +32,26 @@ object ConfigUtil {
   def init(appName: String) = {
     this.appName = Some(appName)
 
-    config = Some({
-      val path = Option(System.getProperty(s"$appName${ConfigUtil.SUFFIX}"))
-      if (path.isDefined) {
-        val configFile = new File(path.get)
-        if (configFile.exists()) {
-          logger.info("Using default and local config file.")
-          ConfigFactory.defaultOverrides()
-            .withFallback(ConfigFactory.load(ConfigFactory.parseFile(new File(path.get))))
-            .withFallback(ConfigFactory.load(appName))
-        } else {
-          logger.warn(s"Local config file under ${path.get} not found.")
-          ConfigFactory.defaultOverrides()
-            .withFallback(ConfigFactory.load(appName))
-        }
-      } else {
-        logger.info("Using only default config file.")
-        ConfigFactory.defaultOverrides()
-          .withFallback(ConfigFactory.load(appName))
+    //load default
+    config = Some(ConfigFactory.defaultOverrides())
+    //load file from the same directory
+    val userFile = new File(s"$appName${ConfigUtil.SUFFIX}")
+    if (userFile.exists) {
+      logger.info("Loading user local config file.")
+      config = Some(config.get.withFallback(ConfigFactory.parseFile(userFile)))
+    }
+    //load file from system property
+    val systemPath = Option(System.getProperty(s"$appName${ConfigUtil.SUFFIX}"))
+    if (systemPath.isDefined) {
+      val systemFile = new File(systemPath.get)
+      if (systemFile.exists()) {
+        logger.info("Loading user config from system env file.")
+        config = Some(config.get.withFallback(ConfigFactory.parseFile(systemFile)))
       }
-    })
+    }
+    //load default from resource
+    logger.info("Loading default config from resources.")
+    config = Some(config.get.withFallback(ConfigFactory.load(appName)))
   }
 
   /**
@@ -67,7 +66,7 @@ object ConfigUtil {
     try {
       Some(config.get.getString(property))
     } catch {
-      case _:ConfigException => None
+      case _: ConfigException => None
     }
   }
 
