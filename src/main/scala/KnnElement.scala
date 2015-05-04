@@ -8,7 +8,7 @@ import scala.collection.mutable.ListBuffer
 class KnnElement {
   val stringList = new ListBuffer[String]()
   val doubleList = new ListBuffer[Double]()
-  val booleanList = new ListBuffer[Boolean]()
+  val categoryList = new ListBuffer[Category]()
   private var classValue: String = _
   private var determinedClassValue: String = _
 
@@ -16,7 +16,7 @@ class KnnElement {
     newVal match {
       case s: String => stringList.append(s)
       case d: Double => doubleList.append(d)
-      case b: Boolean => booleanList.append(b)
+      case b: Category => categoryList.append(b)
     }
   }
 
@@ -30,10 +30,10 @@ class KnnElement {
 
   def calculateDistance(toCompare: KnnElement, standardizationArray: Option[Array[Double]] = None: Option[Array[Double]]): Double = {
     val distance = toCompare.stringList.zip(this.stringList).map(a => levenshteinDistance(a._1, a._2)) ++
-      toCompare.booleanList.zip(this.booleanList).map(a => if (a._1 != a._2) 1D else 0D) ++
+      toCompare.categoryList.zip(this.categoryList).map(a => if (a._1 != a._2) 1D else 0D) ++
       toCompare.doubleList.zip(this.doubleList).map(a => scala.math.abs(a._1 - a._2))
     if (standardizationArray.isDefined) {
-      distance.zip(standardizationArray.get).map(a => if (a._2 != 0) a._1 / a._2 else 0D).sum
+      distance.zip(standardizationArray.get).map(a => if (a._2 != 0) a._1 / a._2 else a._1).sum
     } else {
       distance.sum
     }
@@ -42,7 +42,7 @@ class KnnElement {
   override def toString = {
     s""" StringList: $stringList
         |DoubleList: $doubleList
-        |BooleanList: $booleanList
+        |CategoryList: $categoryList
         |ClassValue: $classValue
      """.stripMargin
   }

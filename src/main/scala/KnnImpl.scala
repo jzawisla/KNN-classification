@@ -54,7 +54,7 @@ class KnnImpl {
       for (field <- lineSplit.zip(typesList.get)) {
         field._2 match {
           case "Double" => newElement.addElement(field._1.toDouble)
-          case "Boolean" => newElement.addElement(field._1.toBoolean)
+          case "Category" => newElement.addElement(new Category(field._1))
           case "Class" => newElement.setClassVal(field._1.toString)
           case _ => newElement.addElement(field._1.toString)
         }
@@ -85,8 +85,9 @@ class KnnImpl {
         setMinMax(i, attribute)
         i = i + 1
       }
-      for (attribute <- knnElem.booleanList) {
-        setMinMax(i, if (attribute) 1D else 0D)
+      for (attribute <- knnElem.categoryList) {
+        //hack: category difference should be always set to 1
+        setMinMaxTuple(i, Tuple2(0D,1D))
         i = i + 1
       }
     }
@@ -96,6 +97,9 @@ class KnnImpl {
         val attributeMax = Math.max(attributeMinsMaxs(position).getOrElse(Tuple2(value, value))._2, value)
         Tuple2(attributeMin, attributeMax)
       })
+    }
+    def setMinMaxTuple(position: Int, value: Tuple2[Double,Double]) = {
+      attributeMinsMaxs(position) = Some(value)
     }
 
     standardizationArray = Some(Array.fill[Double](attributeMinsMaxs.length)(0))
