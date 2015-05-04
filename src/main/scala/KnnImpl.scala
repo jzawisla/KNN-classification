@@ -71,7 +71,7 @@ class KnnImpl {
     //println(testList.toString())
   }
 
-  def resolveTestSet(kParam: Int = ConfigUtil.getPropertyAsInt("knn_k").get) = {
+  def resolveTestSet(kParam: Int) = {
     for {
       k <- testList
     } yield {
@@ -90,7 +90,8 @@ class KnnImpl {
     import org.jfree.chart._
     import org.jfree.data.xy._
 
-    val results = for (i <- 1 to ConfigUtil.getPropertyAsInt("knn_k").getOrElse(100)) yield {
+    val results = for (i <- ConfigUtil.getPropertyAsInt("knn_k_start").getOrElse(1) to ConfigUtil.getPropertyAsInt("knn_k_end").getOrElse(50)) yield {
+      logger.info(s"Running for k=$i")
       resolveTestSet(i)
       i.toDouble -> testList.count(a => a.classVal == a.determinedClassVal).toDouble / testList.length
     }

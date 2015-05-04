@@ -7,7 +7,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     val knnImpl = new KnnImpl
     knnImpl.readFile()
-    knnImpl.resolveTestSet()
+    //knnImpl.resolveTestSet()
     //knnImpl.printResults()
     knnImpl.plotResults()
   }
