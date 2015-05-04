@@ -6,9 +6,9 @@ import scala.collection.mutable.ListBuffer
  * @author Jakub Zawislak
  */
 class KnnElement {
-  private val stringList = new ListBuffer[String]()
-  private val doubleList = new ListBuffer[Double]()
-  private val booleanList = new ListBuffer[Boolean]()
+  val stringList = new ListBuffer[String]()
+  val doubleList = new ListBuffer[Double]()
+  val booleanList = new ListBuffer[Boolean]()
   private var classValue: String = _
   private var determinedClassValue: String = _
 
@@ -28,12 +28,15 @@ class KnnElement {
 
   def setDeterminedClassVal(newVal: String) = determinedClassValue = newVal
 
-  def calculateDistance(toCompare: KnnElement): Double = {
-    var distance = 0D
-    distance += toCompare.stringList.zip(this.stringList).map(a => levenshteinDistance(a._1, a._2)).sum
-    distance += toCompare.booleanList.zip(this.booleanList).map(a => if (a._1 != a._2) 1D else 0D).sum
-    distance += toCompare.doubleList.zip(this.doubleList).map(a => scala.math.abs(a._1 - a._2)).sum
-    distance
+  def calculateDistance(toCompare: KnnElement, standardizationArray: Option[Array[Double]] = None: Option[Array[Double]]): Double = {
+    val distance = toCompare.stringList.zip(this.stringList).map(a => levenshteinDistance(a._1, a._2)) ++
+      toCompare.booleanList.zip(this.booleanList).map(a => if (a._1 != a._2) 1D else 0D) ++
+      toCompare.doubleList.zip(this.doubleList).map(a => scala.math.abs(a._1 - a._2))
+    if (standardizationArray.isDefined) {
+      distance.zip(standardizationArray.get).map(a => if (a._2 != 0) a._1 / a._2 else 0D).sum
+    } else {
+      distance.sum
+    }
   }
 
   override def toString = {

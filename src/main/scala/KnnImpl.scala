@@ -20,6 +20,7 @@ class KnnImpl {
   val trainingList = new ListBuffer[KnnElement]
   val testList = new ListBuffer[KnnElement]
   val random = new scala.util.Random(1)
+  private var standardizationArray = None: Option[Array[Double]]
 
   /**
    * Reads classification data from the specified file. Splits data into two sets: training and test.
@@ -50,9 +51,7 @@ class KnnImpl {
     while (it.hasNext) {
       val newElement = new KnnElement
       val lineSplit = it.next().split(ConfigUtil.getProperty("csv_delimiter").getOrElse(","))
-      for {
-        field <- lineSplit.zip(typesList.get)
-      } yield {
+      for (field <- lineSplit.zip(typesList.get)) {
         field._2 match {
           case "Double" => newElement.addElement(field._1.toDouble)
           case "Boolean" => newElement.addElement(field._1.toBoolean)
@@ -71,19 +70,56 @@ class KnnImpl {
     //println(testList.toString())
   }
 
-  def resolveTestSet(kParam: Int) = {
-    for {
-      k <- testList
-    } yield {
-      val closeClassesWithDistance = trainingList.map(t => t.calculateDistance(k) -> t.classVal).sortBy(_._1).take(kParam)
-      val mostCommonClass = closeClassesWithDistance.groupBy(_._2).toList.sortBy(_._2.length).reverse.head._1
-      k.setDeterminedClassVal(mostCommonClass)
+  def calcStandardizationArray(): Unit = {
+    val attributeMinsMaxs = {
+      Array.fill[Option[Tuple2[Double, Double]]](ConfigUtil.getPropertyAsStringList("csv_col_types").get.count(col => col != "Class"))(None: Option[Tuple2[Double, Double]])
+    }
+
+    for (knnElem <- trainingList) {
+      var i = 0
+      for (attribute <- knnElem.stringList) {
+        setMinMax(i, attribute.length)
+        i = i + 1
+      }
+      for (attribute <- knnElem.doubleList) {
+        setMinMax(i, attribute)
+        i = i + 1
+      }
+      for (attribute <- knnElem.booleanList) {
+        setMinMax(i, if (attribute) 1D else 0D)
+        i = i + 1
+      }
+    }
+    def setMinMax(position: Int, value: Double) = {
+      attributeMinsMaxs(position) = Some({
+        val attributeMin = Math.min(attributeMinsMaxs(position).getOrElse(Tuple2(value, value))._1, value)
+        val attributeMax = Math.max(attributeMinsMaxs(position).getOrElse(Tuple2(value, value))._2, value)
+        Tuple2(attributeMin, attributeMax)
+      })
+    }
+
+    standardizationArray = Some(Array.fill[Double](attributeMinsMaxs.length)(0))
+
+    for (k <- attributeMinsMaxs.zipWithIndex) {
+      for {
+        opt <- standardizationArray
+      } {
+        opt(k._2) = k._1.get._2 - k._1.get._1
+      }
+    }
+
+    logger.info("Calculated standardization coefficients:")
+    for (k <- standardizationArray.get) {
+      logger.info(k.toString)
     }
   }
 
-  def printResults() = {
-    val correctlyClassified = testList.count(a => a.classVal == a.determinedClassVal)
-    println(s"Accuracy is: ${correctlyClassified.toDouble / testList.length}")
+  def resolveTestSet(kParam: Int) = {
+    for (k <- testList) {
+      val closeClassesWithDistance = trainingList.map(t => t.calculateDistance(k, standardizationArray) -> t.classVal).sortBy(_._1).take(kParam)
+      val mostCommonClass = closeClassesWithDistance.groupBy(_._2).toList.sortBy(_._2.length).reverse.head._1
+      k.setDeterminedClassVal(mostCommonClass)
+    }
   }
 
   def plotResults() = {
@@ -96,8 +132,8 @@ class KnnImpl {
       i.toDouble -> testList.count(a => a.classVal == a.determinedClassVal).toDouble / testList.length
     }
 
-    val dataset = new DefaultXYDataset
-    dataset.addSeries("Series 1", Array(results.map(_._2).toArray, results.map(_._1).toArray))
+    val dataSet = new DefaultXYDataset
+    dataSet.addSeries("Series 1", Array(results.map(_._2).toArray, results.map(_._1).toArray))
 
     val frame = new ChartFrame(
       "KNN-Classification",
@@ -105,7 +141,7 @@ class KnnImpl {
         "KNN-Classification results",
         "Accuracy",
         "K-parameter",
-        dataset,
+        dataSet,
         org.jfree.chart.plot.PlotOrientation.HORIZONTAL,
         false, false, false
       )
