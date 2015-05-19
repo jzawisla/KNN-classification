@@ -1,7 +1,6 @@
 package pl.zaw.core.config
 
 import java.io.File
-import java.util
 
 import com.typesafe.config._
 import com.typesafe.scalalogging.Logger
@@ -55,66 +54,23 @@ object ConfigUtil {
   }
 
   /**
-   * Returns property's value as [[Option[String] ]]
+   * Returns property's value as `Option[T]` type using `implicits`.
+   *
+   * ==Example usage:==
+   * 1. val intValue: Int = ConfigUtil.get("propName") <br>
+   * 2. val intValue = ConfigUtil.get[Int]("propName")
    * @param property property's name
+   * @param get function for getting property as object of type [[T]] from [[com.typesafe.config.Config]]
    */
   @throws[MissingInit]("if the init wasn't called first")
-  def getProperty(property: String): Option[String] = {
+  def get[T](property: String)(implicit get: (Config, String) => T): Option[T] = {
     if (!config.isDefined) {
       throw new MissingInit("Init properties first.")
     }
     try {
-      Some(config.get.getString(property))
+      Some(get(config.get, property))
     } catch {
       case _: ConfigException => None
-    }
-  }
-
-  /**
-   * Returns property's value as [[Option[Boolean] ]]
-   * @param property property's name
-   */
-  @throws[MissingInit]("if the init wasn't called first")
-  def getPropertyAsBoolean(property: String): Option[Boolean] = {
-    if (!config.isDefined) {
-      throw new MissingInit("Init properties first.")
-    }
-    try {
-      Some(config.get.getBoolean(property))
-    } catch {
-      case _:ConfigException => None
-    }
-  }
-
-  /**
-   * Returns property's value as [[Option[Int] ]]
-   * @param property property's name
-   */
-  @throws[MissingInit]("if the init wasn't called first")
-  def getPropertyAsInt(property: String): Option[Int] = {
-    if (!config.isDefined) {
-      throw new MissingInit("Init properties first.")
-    }
-    try {
-      Some(config.get.getInt(property))
-    } catch {
-      case _:ConfigException => None
-    }
-  }
-
-  /**
-   * Returns property's value as [[Option[util.List[String]] ]]
-   * @param property property's name
-   */
-  @throws[MissingInit]("if the init wasn't called first")
-  def getPropertyAsStringList(property: String): Option[util.List[String]] = {
-    if (!config.isDefined) {
-      throw new MissingInit("Init properties first.")
-    }
-    try {
-      Some(config.get.getStringList(property))
-    } catch {
-      case _:ConfigException => None
     }
   }
 }

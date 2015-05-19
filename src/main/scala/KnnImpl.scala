@@ -3,8 +3,8 @@ import java.io.{FileInputStream, FileNotFoundException, InputStream}
 import com.typesafe.scalalogging.Logger
 import org.slf4j.LoggerFactory
 import pl.zaw.core.config.ConfigUtil
+import pl.zaw.core.config.Implicits._
 
-import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
@@ -28,8 +28,8 @@ class KnnImpl {
    * @param trainingPercentage how much data should become training data (in percentage)
    */
   @throws[FileNotFoundException]("if the init wasn't called first")
-  def readFile(fileName: String = ConfigUtil.getProperty("csv_filename").get,
-               trainingPercentage: Int = ConfigUtil.getPropertyAsInt("knn_training_percentage").getOrElse(70)) = {
+  def readFile(fileName: String = ConfigUtil.get[String]("csv_filename").get,
+               trainingPercentage: Int = ConfigUtil.get[Int]("knn_training_percentage").getOrElse(70)) = {
     var sourceFile: InputStream = null
     try {
       sourceFile = new FileInputStream(fileName)
@@ -45,12 +45,12 @@ class KnnImpl {
 
     val it = Source.fromInputStream(sourceFile).getLines()
 
-    val typesList = ConfigUtil.getPropertyAsStringList("csv_col_types")
-    if (ConfigUtil.getPropertyAsBoolean("csv_skip_headers").getOrElse(false)) it.next()
+    val typesList = ConfigUtil.get[List[String]]("csv_col_types")
+    if (ConfigUtil.get[Boolean]("csv_skip_headers").getOrElse(false)) it.next()
 
     while (it.hasNext) {
       val newElement = new KnnElement
-      val lineSplit = it.next().split(ConfigUtil.getProperty("csv_delimiter").getOrElse(","))
+      val lineSplit = it.next().split(ConfigUtil.get[String]("csv_delimiter").getOrElse(","))
       for (field <- lineSplit.zip(typesList.get)) {
         field._2 match {
           case "Double" => newElement.addElement(field._1.toDouble)
@@ -72,7 +72,7 @@ class KnnImpl {
 
   def calcStandardizationArray(): Unit = {
     val attributeMinsMaxs = {
-      Array.fill[Option[Tuple2[Double, Double]]](ConfigUtil.getPropertyAsStringList("csv_col_types").get.count(col => col != "Class"))(None: Option[Tuple2[Double, Double]])
+      Array.fill[Option[Tuple2[Double, Double]]](ConfigUtil.get[List[String]]("csv_col_types").get.count(col => col != "Class"))(None: Option[Tuple2[Double, Double]])
     }
 
     for (knnElem <- trainingList) {
@@ -87,7 +87,7 @@ class KnnImpl {
       }
       for (attribute <- knnElem.categoryList) {
         //hack: category difference should be always set to 1
-        setMinMaxTuple(i, Tuple2(0D,1D))
+        setMinMaxTuple(i, Tuple2(0D, 1D))
         i = i + 1
       }
     }
@@ -98,7 +98,7 @@ class KnnImpl {
         Tuple2(attributeMin, attributeMax)
       })
     }
-    def setMinMaxTuple(position: Int, value: Tuple2[Double,Double]) = {
+    def setMinMaxTuple(position: Int, value: Tuple2[Double, Double]) = {
       attributeMinsMaxs(position) = Some(value)
     }
 
@@ -130,7 +130,7 @@ class KnnImpl {
     import org.jfree.chart._
     import org.jfree.data.xy._
 
-    val results = for (i <- ConfigUtil.getPropertyAsInt("knn_k_start").getOrElse(1) to ConfigUtil.getPropertyAsInt("knn_k_end").getOrElse(50)) yield {
+    val results = for (i <- ConfigUtil.get[Int]("knn_k_start").getOrElse(1) to ConfigUtil.get[Int]("knn_k_end").getOrElse(50)) yield {
       logger.info(s"Running for k=$i")
       resolveTestSet(i)
       i.toDouble -> testList.count(a => a.classVal == a.determinedClassVal).toDouble / testList.length
