@@ -19,17 +19,16 @@ class KnnImpl {
 
   val trainingList = new ListBuffer[KnnElement]
   val testList = new ListBuffer[KnnElement]
+  val inputList = new ListBuffer[KnnElement]
   val random = new scala.util.Random(1)
   private var standardizationArray = None: Option[Array[Double]]
 
   /**
    * Reads classification data from the specified file. Splits data into two sets: training and test.
    * @param fileName file to be read
-   * @param trainingPercentage how much data should become training data (in percentage)
    */
   @throws[FileNotFoundException]("if the init wasn't called first")
-  def readFile(fileName: String = ConfigUtil.get[String]("csv_filename").get,
-               trainingPercentage: Int = ConfigUtil.get[Int]("knn_training_percentage").getOrElse(70)) = {
+  def readFile(fileName: String = ConfigUtil.get[String]("csv_filename").get) = {
     var sourceFile: InputStream = null
     try {
       sourceFile = new FileInputStream(fileName)
@@ -59,15 +58,38 @@ class KnnImpl {
           case _ => newElement.addElement(field._1.toString)
         }
       }
-
-      random.nextInt(100) match {
-        case x if x <= trainingPercentage => trainingList.append(newElement)
-        case _ => testList.append(newElement)
-      }
+      inputList.append(newElement)
     }
-
+    sourceFile.close()
     //println(trainingList.length)
     //println(testList.toString())
+  }
+
+  /**
+   * Splits input data ito two subsets training and test.
+   * @param trainingPart - indicates for how many parts input data should be split
+   * @param crossValidationPart - number of current part that should be used as test data
+   */
+  def splitIntoTrainingAndTest(trainingPart: Int,
+                               crossValidationPart: Int): Unit = {
+    //to get the same results every time
+    random.setSeed(1)
+    trainingList.clear()
+    testList.clear()
+
+    for {
+      currElement <- inputList
+    } {
+      random.nextInt(trainingPart) match {
+        //Cross validation
+        //Thanks to setting the same seed in every loop, every element will be taken to training list
+        //only once during iterating over all trainingCrossValidationPart's.
+        case x if (x + crossValidationPart) % trainingPart != 0 => trainingList.append(currElement)
+        case _ => testList.append(currElement)
+      }
+    }
+    logger.info(s"Training: ${trainingList.length}")
+    logger.info(s"Test: ${testList.length}")
   }
 
   def calcStandardizationArray(): Unit = {
@@ -112,10 +134,10 @@ class KnnImpl {
       }
     }
 
-    logger.info("Calculated standardization coefficients:")
-    for (k <- standardizationArray.get) {
-      logger.info(k.toString)
-    }
+    //    logger.info("Calculated standardization coefficients:")
+    //    for (k <- standardizationArray.get) {
+    //      logger.info(k.toString)
+    //    }
   }
 
   def resolveTestSet(kParam: Int) = {
@@ -130,11 +152,25 @@ class KnnImpl {
     import org.jfree.chart._
     import org.jfree.data.xy._
 
-    val results = for (i <- ConfigUtil.get[Int]("knn_k_start").getOrElse(1) to ConfigUtil.get[Int]("knn_k_end").getOrElse(50)) yield {
-      logger.info(s"Running for k=$i")
-      resolveTestSet(i)
-      i.toDouble -> testList.count(a => a.classVal == a.determinedClassVal).toDouble / testList.length
-    }
+    val crossValidationRepetitions = ConfigUtil.get[Int]("knn_training_cross_validation").getOrElse(5)
+    val results = for {
+      kValue <- ConfigUtil.get[Int]("knn_k_start").getOrElse(1) to ConfigUtil.get[Int]("knn_k_end").getOrElse(50)
+    } yield {
+        val innerResult = for {
+          currentCrossValidation <- 0 to Math.min(crossValidationRepetitions - 1, ConfigUtil.get[Int]("knn_training_cross_validation_loops").getOrElse(crossValidationRepetitions))
+        } yield {
+            logger.info(s"Running for k=$kValue, crossValidation = $currentCrossValidation")
+            splitIntoTrainingAndTest(crossValidationRepetitions, currentCrossValidation)
+            if (ConfigUtil.get[Boolean]("knn_standardization").getOrElse(true)) {
+              logger.info("Calculating standardization array.")
+              calcStandardizationArray()
+            }
+            logger.info("Resolving test.")
+            resolveTestSet(kValue)
+            testList.count(a => a.classVal == a.determinedClassVal).toDouble / testList.length
+          }
+        kValue.toDouble -> innerResult.sum / innerResult.length
+      }
 
     val dataSet = new DefaultXYDataset
     dataSet.addSeries("Series 1", Array(results.map(_._2).toArray, results.map(_._1).toArray))
